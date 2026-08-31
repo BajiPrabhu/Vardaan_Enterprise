@@ -1,0 +1,73 @@
+# ================================
+# VARDAAN ENTERPRISE - GITIGNORE
+# ================================
+
+# ----------------
+# Environment
+# ----------------
+.env
+.env.*
+!.env.example
+
+# ----------------
+# Python
+# ----------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+venv/
+.venv/
+ENV/
+env/
+
+.pytest_cache/
+.mypy_cache/
+
+# ----------------
+# Databases
+# ----------------
+*.db
+*.sqlite
+*.sqlite3
+
+# ----------------
+# Node / React
+# ----------------
+node_modules/
+dist/
+dist-ssr/
+build/
+.npm/
+
+# ----------------
+# Logs
+# ----------------
+*.log
+logs/
+
+# ----------------
+# IDE
+# ----------------
+.vscode/
+.idea/
+
+# ----------------
+# OS
+# ----------------
+.DS_Store
+Thumbs.db
+
+# ----------------
+# Temporary files
+# ----------------
+*.tmp
+*.temp
+*.bak
+
+# ----------------
+# Uploads / generated data
+# ----------------
+uploads/*
+backups/*
