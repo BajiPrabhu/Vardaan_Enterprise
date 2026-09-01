@@ -7,3 +7,4 @@ Flask-SocketIO==5.6.1
 paho-mqtt==2.1.0
 PyMySQL==1.2.0
 python-dotenv==1.2.2
+gunicorn
