@@ -7,7 +7,9 @@ import AppRoutes from "./router";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1 },
+    queries: {
+      retry: 1,
+    },
   },
 });
 
@@ -17,7 +19,7 @@ export default function App() {
       <ThemeProvider>
         <AuthProvider>
           <SocketProvider>
-            <BrowserRouter>
+            <BrowserRouter basename={import.meta.env.BASE_URL}>
               <AppRoutes />
             </BrowserRouter>
           </SocketProvider>
