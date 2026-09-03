@@ -29,8 +29,8 @@ class Config:
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Comma-separated in .env, e.g. CORS_ORIGINS=https://fleet.example.com
-    CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
 
-    MQTT_BROKER_HOST = os.environ.get("MQTT_BROKER_HOST", "localhost")
-    MQTT_BROKER_PORT = int(os.environ.get("MQTT_BROKER_PORT", 1883))
-    MQTT_ENABLED = os.environ.get("MQTT_ENABLED", "true").lower() != "false"
+MQTT_BROKER_HOST = os.environ.get("MQTT_BROKER_HOST", "localhost")
+MQTT_BROKER_PORT = int(os.environ.get("MQTT_BROKER_PORT", 1883))
+MQTT_ENABLED = os.environ.get("MQTT_ENABLED", "true").lower() != "false"
