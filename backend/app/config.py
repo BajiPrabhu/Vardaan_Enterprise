@@ -16,10 +16,17 @@ class Config:
     # without asking someone to log back in.
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=12)
 
+    
     SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL", "mysql+pymysql://user:password@localhost:3306/vardaan"
+    "DATABASE_URL", "mysql+pymysql://user:password@localhost:3306/vardaan"
     )
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+    "connect_args": {
+        "ssl_verify_cert": False
+    }
+}
+
+SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Comma-separated in .env, e.g. CORS_ORIGINS=https://fleet.example.com
     CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
