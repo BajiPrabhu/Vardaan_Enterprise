@@ -7,7 +7,7 @@ class Device(db.Model):
     __tablename__ = "devices"
 
     id = db.Column(db.Integer, primary_key=True)
-    # raspberry_pi, anpr_camera, gps_module, rfid_reader, alcohol_sensor,
+    # raspberry_pi, dash_cam, gps_module, rfid_reader, alcohol_sensor,
     # pulse_sensor, temperature_sensor, humidity_sensor, relay_module, ...
     device_type = db.Column(db.String(50), nullable=False)
 

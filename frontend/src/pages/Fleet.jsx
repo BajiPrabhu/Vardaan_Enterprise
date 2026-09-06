@@ -5,6 +5,7 @@ import { Card, CardContent } from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
+import Pagination from "../components/ui/Pagination";
 import { useAuth } from "../auth/AuthContext";
 import { describeError } from "../lib/errors";
 import { useDrivers } from "../lib/drivers";
@@ -29,7 +30,8 @@ export default function Fleet() {
   const { user } = useAuth();
   const canWrite = CAN_WRITE.includes(user?.role);
 
-  const { data, isLoading, isError, error } = useVehicles();
+  const [page, setPage] = useState(1);
+  const { data, isLoading, isError, error } = useVehicles({ page });
   const { data: driversData } = useDrivers({ per_page: 100 }, { enabled: canWrite });
   const createVehicle = useCreateVehicle();
   const updateVehicle = useUpdateVehicle();
@@ -182,6 +184,14 @@ export default function Fleet() {
               ))}
             </tbody>
           </table>
+        )}
+        {data && (
+          <Pagination
+            page={data.page}
+            perPage={data.per_page}
+            total={data.total}
+            onPageChange={setPage}
+          />
         )}
       </Card>
 

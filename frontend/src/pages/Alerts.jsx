@@ -4,17 +4,12 @@ import { AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
+import Pagination from "../components/ui/Pagination";
 import { useAuth } from "../auth/AuthContext";
 import { useSocket } from "../realtime/SocketContext";
 import { describeError } from "../lib/errors";
+import { ALERT_TYPE_LABELS } from "../lib/labels";
 import { useAlerts, useAcknowledgeAlert } from "../lib/alerts";
-
-const ALERT_TYPE_LABELS = {
-  alcohol_detected: "Alcohol detected",
-  high_pulse: "High pulse",
-  device_critical: "Device critical",
-  device_offline: "Device offline",
-};
 
 const CAN_ACK = ["owner", "administrator", "supervisor", "operator"];
 
@@ -22,9 +17,15 @@ export default function Alerts() {
   const { user } = useAuth();
   const canAck = CAN_ACK.includes(user?.role);
   const [unackOnly, setUnackOnly] = useState(false);
+  const [page, setPage] = useState(1);
+
+  const changeFilter = (nextUnackOnly) => {
+    setUnackOnly(nextUnackOnly);
+    setPage(1); // page 3 of "All" isn't necessarily page 3 of "Unacknowledged"
+  };
 
   const { data, isLoading, isError, error } = useAlerts(
-    unackOnly ? { acknowledged: false } : {}
+    unackOnly ? { acknowledged: false, page } : { page }
   );
   const acknowledgeAlert = useAcknowledgeAlert();
   const { socket } = useSocket();
@@ -34,14 +35,24 @@ export default function Alerts() {
     if (!socket) return;
 
     const handleNew = (alert) => {
-      queryClient.setQueriesData({ queryKey: ["alerts"] }, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          items: [alert, ...old.items],
-          total: old.total + 1,
-          unacknowledged_total: old.unacknowledged_total + 1,
-        };
+      queryClient.getQueryCache().findAll({ queryKey: ["alerts"] }).forEach((query) => {
+        const [, params] = query.queryKey;
+        const isFirstPage = !params?.page || params.page === 1;
+
+        queryClient.setQueryData(query.queryKey, (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            // A live alert belongs at the top of page 1 — injecting it into
+            // whatever page someone happens to be viewing would put it in
+            // the wrong place and throw off that page's count.
+            items: isFirstPage
+              ? [alert, ...old.items].slice(0, old.per_page)
+              : old.items,
+            total: old.total + 1,
+            unacknowledged_total: old.unacknowledged_total + 1,
+          };
+        });
       });
     };
 
@@ -64,7 +75,7 @@ export default function Alerts() {
         </div>
         <div className="flex gap-1 rounded-md border border-line p-0.5">
           <button
-            onClick={() => setUnackOnly(false)}
+            onClick={() => changeFilter(false)}
             className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
               !unackOnly ? "bg-copper/10 text-copper" : "text-ink-muted"
             }`}
@@ -72,7 +83,7 @@ export default function Alerts() {
             All
           </button>
           <button
-            onClick={() => setUnackOnly(true)}
+            onClick={() => changeFilter(true)}
             className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
               unackOnly ? "bg-copper/10 text-copper" : "text-ink-muted"
             }`}
@@ -157,6 +168,14 @@ export default function Alerts() {
               </div>
             ))}
           </div>
+        )}
+        {data && (
+          <Pagination
+            page={data.page}
+            perPage={data.per_page}
+            total={data.total}
+            onPageChange={setPage}
+          />
         )}
       </Card>
     </div>

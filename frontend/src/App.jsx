@@ -7,9 +7,7 @@ import AppRoutes from "./router";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      retry: 1,
-    },
+    queries: { retry: 1 },
   },
 });
 

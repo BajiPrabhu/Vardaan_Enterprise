@@ -5,6 +5,7 @@ import { Card, CardContent } from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
+import Pagination from "../components/ui/Pagination";
 import { useAuth } from "../auth/AuthContext";
 import { describeError } from "../lib/errors";
 import {
@@ -27,7 +28,8 @@ export default function Drivers() {
   const { user } = useAuth();
   const canWrite = CAN_WRITE.includes(user?.role);
 
-  const { data, isLoading, isError, error } = useDrivers();
+  const [page, setPage] = useState(1);
+  const { data, isLoading, isError, error } = useDrivers({ page });
   const createDriver = useCreateDriver();
   const updateDriver = useUpdateDriver();
   const deleteDriver = useDeleteDriver();
@@ -181,6 +183,14 @@ export default function Drivers() {
             </tbody>
           </table>
         )}
+        {data && (
+          <Pagination
+            page={data.page}
+            perPage={data.per_page}
+            total={data.total}
+            onPageChange={setPage}
+          />
+        )}
       </Card>
 
       <Modal
@@ -269,7 +279,7 @@ export default function Drivers() {
               </label>
               <input
                 {...register("emergency_contact_phone")}
-                className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm font-data text-ink outline-none focus:border-copper"
+                className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink outline-none focus:border-copper"
               />
             </div>
           </div>

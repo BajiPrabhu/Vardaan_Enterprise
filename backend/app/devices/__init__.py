@@ -10,7 +10,7 @@ devices_bp = Blueprint("devices", __name__, url_prefix="/api")
 DEVICE_TYPES = {
     "raspberry_pi",
     "raspberry_pi_camera",
-    "anpr_camera",
+    "dash_cam",
     "gps_module",
     "rfid_reader",
     "uhf_rfid_reader",

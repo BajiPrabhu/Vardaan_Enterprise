@@ -4,10 +4,14 @@ const ThemeContext = createContext(null);
 
 function getInitialTheme() {
   const stored = localStorage.getItem("vardaan-theme");
-  if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+
+  if (stored === "light" || stored === "dark") {
+    return stored;
+  }
+
+  // VARDAAN uses the dark industrial interface by default.
+  // Users can switch to light mode and their preference will be remembered.
+  return "dark";
 }
 
 export function ThemeProvider({ children }) {
@@ -18,8 +22,11 @@ export function ThemeProvider({ children }) {
     localStorage.setItem("vardaan-theme", theme);
   }, [theme]);
 
-  const toggleTheme = () =>
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  const toggleTheme = () => {
+    setTheme((currentTheme) =>
+      currentTheme === "dark" ? "light" : "dark"
+    );
+  };
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
@@ -30,6 +37,10 @@ export function ThemeProvider({ children }) {
 
 export function useTheme() {
   const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error("useTheme must be used within ThemeProvider");
+
+  if (!ctx) {
+    throw new Error("useTheme must be used within ThemeProvider");
+  }
+
   return ctx;
 }

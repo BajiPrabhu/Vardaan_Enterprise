@@ -5,10 +5,12 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent } from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
+import Pagination from "../components/ui/Pagination";
 import StatusDot from "../components/ui/StatusDot";
 import { useAuth } from "../auth/AuthContext";
 import { useSocket } from "../realtime/SocketContext";
 import { describeError } from "../lib/errors";
+import { DEVICE_TYPE_LABELS } from "../lib/labels";
 import { useVehicles } from "../lib/fleet";
 import {
   useDevices,
@@ -17,29 +19,14 @@ import {
   useDeleteDevice,
 } from "../lib/devices";
 
-const DEVICE_TYPE_LABELS = {
-  raspberry_pi: "Raspberry Pi",
-  raspberry_pi_camera: "Pi Camera Module",
-  anpr_camera: "ANPR Camera",
-  gps_module: "GPS Module",
-  rfid_reader: "RFID Reader",
-  uhf_rfid_reader: "UHF RFID Reader",
-  alcohol_sensor: "Alcohol Sensor",
-  pulse_sensor: "Pulse Sensor",
-  temperature_sensor: "Temperature Sensor",
-  humidity_sensor: "Humidity Sensor",
-  relay_module: "Relay Module",
-  proximity_sensor: "Proximity Sensor",
-  ultrasonic_sensor: "Ultrasonic Sensor",
-};
-
 const CAN_WRITE = ["owner", "administrator", "maintenance_engineer"];
 
 export default function Devices() {
   const { user } = useAuth();
   const canWrite = CAN_WRITE.includes(user?.role);
 
-  const { data, isLoading, isError, error } = useDevices();
+  const [page, setPage] = useState(1);
+  const { data, isLoading, isError, error } = useDevices({ page });
   const { data: vehiclesData } = useVehicles({ per_page: 100 });
   const createDevice = useCreateDevice();
   const updateDevice = useUpdateDevice();
@@ -209,6 +196,14 @@ export default function Devices() {
               ))}
             </tbody>
           </table>
+        )}
+        {data && (
+          <Pagination
+            page={data.page}
+            perPage={data.per_page}
+            total={data.total}
+            onPageChange={setPage}
+          />
         )}
       </Card>
 

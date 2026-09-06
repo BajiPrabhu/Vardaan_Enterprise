@@ -15,7 +15,7 @@ ROLES = [
     ("administrator", "Manages users, roles, and system settings"),
     ("fleet_manager", "Manages vehicles, drivers, and trips"),
     ("supervisor", "Oversees day-to-day fleet operations"),
-    ("security_officer", "Monitors ANPR, access control, and incidents"),
+    ("security_officer", "Monitors dash cam feeds, access control, and incidents"),
     ("maintenance_engineer", "Manages vehicle and device maintenance"),
     ("operator", "Runs live monitoring and responds to alerts"),
     ("driver", "Drives an assigned vehicle"),

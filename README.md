@@ -26,6 +26,13 @@ see the build order below.
    telemetry feed, all fed by the WebSocket stream Devices already uses.
 9. ✅ **Alerts** — the same telemetry stream, filtered to transitions
    worth surfacing and actually persisted, with acknowledge tracking.
+10. ✅ **Pagination UI** — Fleet, Devices, Drivers, and Alerts all had a
+    real paginated API since the day each was built; nothing on the
+    frontend actually used it until now.
+11. ✅ **Dashboard, wired to real data** — the last page still showing
+    sample content, now pulling live counts from Fleet, Devices, and
+    Alerts, refreshing itself on the same WebSocket events Devices and
+    Alerts already use.
 
 ## Quick start (four terminals now)
 
@@ -68,7 +75,7 @@ people's data.
 
 ## backend/
 
-Flask + SQLAlchemy + MySQL. Boots clean, creates all 5 tables with no
+Flask + SQLAlchemy + MySQL. Boots clean, creates all 6 tables with no
 errors (verified against SQLite; real migrations need a real MySQL
 instance).
 
@@ -91,12 +98,12 @@ break.
   which accounts exist.
 - `GET /api/auth/me` — resolves the current user from the token; the
   frontend calls this once on load to restore a session.
-- `role_required(*roles)` in `app/auth/decorators.py` — now protecting the
-  three write endpoints in the Fleet API below.
+- `role_required(*roles)` in `app/auth/decorators.py` — now protecting
+  the write endpoints across Fleet, Devices, Drivers, and Alerts.
 - Access tokens last 12 hours (`Config.JWT_ACCESS_TOKEN_EXPIRES`). No
   refresh token yet — that's the natural next hardening step, deferred so
   this step stayed focused on the login round-trip actually working.
-- CORS is now scoped to `CORS_ORIGINS` (defaults to the Vite dev origin)
+- CORS is scoped to `CORS_ORIGINS` (defaults to the Vite dev origin)
   instead of allowing every origin.
 
 **Fleet API** (`app/fleet/`) — the first real module, all under
@@ -104,8 +111,7 @@ break.
 - `GET /vehicles` — paginated list, optional `?status=` filter. Open to
   any authenticated role; there's no per-driver row filtering yet.
 - `POST /vehicles`, `PATCH /vehicles/<id>`, `DELETE /vehicles/<id>` — all
-  behind `role_required("owner", "administrator", "fleet_manager")`, the
-  decorator from step 3 that had nothing using it until now.
+  behind `role_required("owner", "administrator", "fleet_manager")`.
 - Registration numbers are checked for uniqueness with a real 409, not
   just the database's unique constraint surfacing as a raw 500.
 - Assigning a vehicle to a driver validates the driver actually exists
@@ -123,6 +129,11 @@ break.
   the same way Fleet validates `assigned_driver_id`.
 - `last_heartbeat` updates for real now — see the real-time layer below.
   Nothing in this API writes it directly; the MQTT subscriber does.
+- `device_type` includes `dash_cam`, not `anpr_camera` — the original
+  spec's hardware list assumed ANPR cameras, but the actual hardware is
+  dash cams. Corrected everywhere the type appeared: this API's allowed
+  values, the frontend's label map, and the security_officer role
+  description in `seed.py`, which referenced "ANPR" specifically.
 
 **Drivers API** (`app/drivers/`), under `/api`:
 - Deliberately narrower access than Fleet or Devices: reads need
@@ -230,12 +241,12 @@ GPS devices get a plausible reading alongside their status; an alcohol
 reading above 0.015%BAC or a pulse above 120bpm forces `critical`
 regardless of anything else — the two readings where the number itself
 should drive status, not the other way around. Status mostly stays put
-and occasionally drifts to a neighboring
-state, so watching it shows something changing instead of a wall of
-constant green. This is genuinely a separate process from the backend —
-run both, and confirmed (with real `mosquitto_pub`/`mosquitto_sub`, not
-just Python-internal calls) that they talk to each other correctly
-through the actual broker, not a mocked one.
+and occasionally drifts to a neighboring state, so watching it shows
+something changing instead of a wall of constant green. This is
+genuinely a separate process from the backend — run both, and confirmed
+(with real `mosquitto_pub`/`mosquitto_sub`, not just Python-internal
+calls) that they talk to each other correctly through the actual broker,
+not a mocked one.
 
 One real bug this caught in its own first draft: the script tried to
 disable its own (redundant) MQTT subscriber *after* calling
@@ -267,33 +278,32 @@ lint is clean.
 **Auth** (`src/auth/`):
 - `AuthContext` — holds the current user, exposes `login()`/`logout()`,
   and on first load calls `/api/auth/me` with whatever token is in
-  `localStorage` to restore a session across refreshes.
+  `localStorage` to restore a session across refreshes. Only clears that
+  token on an actual 401 — a backend restart or network blip doesn't
+  silently sign you out anymore.
 - `ProtectedRoute` — redirects to `/login` when there's no user; sends you
   back to where you were headed after a successful login.
 - `Login` page — React Hook Form, matches the design system.
-- **Sidebar is now role-aware**, not just build-aware: "Administration" and
-  "Settings" are restricted to specific roles (`owner`/`administrator`,
-  plus `fleet_manager` for Settings) and simply don't render for anyone
-  else — a different treatment from the "Soon" items, which everyone sees
-  but nothing routes to yet. Log in as `driver` vs `owner` to see the
-  difference.
+- Sidebar is role-aware: "Administration" and "Settings" are restricted to
+  specific roles and simply don't render for anyone else — a different
+  treatment from the "Soon" items, which everyone sees but nothing routes
+  to yet.
 - Top bar shows the real signed-in username and role, with a working
   sign-out button.
 
-**Fleet page** (`src/pages/Fleet.jsx`) — real data via TanStack Query, no
-sample rows. A table of vehicles with status badges and assigned driver;
-"Add vehicle" and the row-level edit/delete actions only render for
-`owner` / `administrator` / `fleet_manager` — everyone else gets a
-read-only table, matching what the API actually allows them to do.
-Create/edit share one modal and one form (`src/components/ui/Modal.jsx`,
-a new reusable primitive — the next module that needs a form dialog reuses
-this rather than building its own).
+**Fleet page** (`src/pages/Fleet.jsx`) — real data via TanStack Query. A
+table of vehicles with status badges and assigned driver; "Add vehicle"
+and the row-level edit/delete actions only render for `owner` /
+`administrator` / `fleet_manager`. The "Assigned driver" field in the
+form pulls from `useDrivers()`, the same way Devices' vehicle dropdown
+pulls from Fleet's.
 
 **Devices page** (`src/pages/Devices.jsx`) — same pattern as Fleet,
-reusing `Modal` and, for the first time, `StatusDot` on real data instead
-of the Dashboard's sample rows. The "mount on vehicle" dropdown in the
-form pulls live from `useVehicles()` in `lib/fleet.js` — the first place
-two modules' data actually meet.
+reusing `Modal` and `StatusDot` on real data instead of the Dashboard's
+sample rows. Listens for `device:update` over WebSocket and patches that
+one row directly in the TanStack Query cache — not a refetch of the whole
+list on every message, which would fight with the 4-second simulator
+cadence.
 
 **Drivers page** (`src/pages/Drivers.jsx`) — matches the API's narrower
 access: the page itself doesn't render (and the sidebar item doesn't even
@@ -302,34 +312,10 @@ show) for roles outside `owner` / `administrator` / `fleet_manager` /
 (≥80 ok, ≥50 warn, below that critical) — reusing `Badge`, not a new
 component.
 
-**Fleet's driver picker now actually works.** The "Assigned driver" field
-was always accepted by the API but never existed in the Fleet form itself
-until now — it pulls from `useDrivers()`, the same way Devices' vehicle
-dropdown pulls from Fleet's. Only fetches when the signed-in role can
-actually write to Fleet, so a role that can't use the field never fires a
-doomed request for data it can't read either.
-
-**`lib/errors.js`** — a `describeError()` helper, extracted now that the
-same three-way distinction (no permission / can't reach the backend /
-here's what the backend actually said) was about to be written a third
-time across Fleet, Devices, and Drivers. All three pages use it now,
-including the previous two, which got touched again for this.
-
-**`realtime/SocketContext.jsx`** — connects once you're signed in (with
-the same token used for REST calls), tears the connection down on
-sign-out, and exposes real connection state. Two places actually use it:
-- The top bar's "Live" indicator was hardcoded to always say online since
-  it was first built, before there was anything real behind it — it now
-  reflects the actual WebSocket connection, and says "Reconnecting…"
-  instead of quietly lying if that connection drops.
-- The Devices page listens for `device:update` and patches that one row
-  directly in the TanStack Query cache — not a refetch of the whole list
-  on every message, which would fight with the 4-second simulator cadence.
-
 **Monitoring page** (`src/pages/Monitoring.jsx`) — the first page that's
 genuinely new frontend work against infrastructure that already existed,
 not a fourth CRUD module. Three panels, all from the same
-`device:update` stream `SocketContext` already provides:
+`device:update` stream `SocketContext` provides:
 - A status-breakdown chart (first real use of **Recharts** — installed
   since the frontend-foundation step, unused until now) built from the
   *current* device list, so it's populated immediately, not waiting on
@@ -361,36 +347,106 @@ the same alert a second earlier, the button doesn't just sit there having
 silently done nothing; the row corrects itself to show who actually got
 there first.
 
+**`realtime/SocketContext.jsx`** — connects once you're signed in (with
+the same token used for REST calls), tears the connection down on
+sign-out, and exposes real connection state. Two places actually use it:
+- The top bar's "Live" indicator was hardcoded to always say online since
+  it was first built, before there was anything real behind it — it now
+  reflects the actual WebSocket connection, and says "Reconnecting…"
+  instead of quietly lying if that connection drops.
+- The Devices page listens for `device:update` and patches that one row
+  directly in the TanStack Query cache.
+
+**`lib/errors.js`** — a `describeError()` helper, extracted once the same
+three-way distinction (no permission / can't reach the backend / here's
+what the backend actually said) was about to be written a third time
+across Fleet, Devices, and Drivers. All four data pages use it now.
+
+**`lib/labels.js`** — `DEVICE_TYPE_LABELS` and `ALERT_TYPE_LABELS`,
+extracted for the same reason as `errors.js`: Dashboard had quietly grown
+its own copy of both maps, so the ANPR→dash-cam correction below would
+have meant editing the same object literal in two or three places by
+hand and hoping they stayed in sync. One file now; Devices, Dashboard,
+and Alerts all import from it.
+
+**`components/ui/Pagination.jsx`** — the sixth reusable primitive
+(`Button`, `Card`, `Badge`, `StatusDot`, `Modal` came before it), and the
+first one added purely to close a gap rather than because a new module
+needed it. Fleet, Devices, Drivers, and Alerts all use it identically:
+Previous/Next, a page count, and a "Showing X–Y of Z" label, hidden
+entirely when everything already fits on one page. Two details that
+mattered once real paging was involved, neither of which came up while
+these lists were small enough to never need a second page:
+- All four list-fetching hooks (`useVehicles`, `useDevices`, `useDrivers`,
+  `useAlerts`) now pass `placeholderData: keepPreviousData` — without it,
+  every page change would flash to a loading state before showing the
+  next page, since TanStack Query treats `{ page: 1 }` and `{ page: 2 }`
+  as genuinely different queries.
+- Alerts' live `alert:new` handler needed to become page-aware. A new
+  alert belongs at the top of page 1 — injecting it into whatever page
+  someone happens to be looking at would put it in the wrong place and
+  throw off that page's count, so the handler now checks each cached
+  page's own params before deciding whether to insert the item or just
+  bump the totals.
+- Confirmed the actual split with real data, not just the math on paper:
+  created 25 vehicles, checked that page 1 returns exactly 20, page 2
+  returns exactly the remaining 5, and the two pages together cover all
+  25 registration numbers with no overlap and no gap.
+
+**Dashboard page** (`src/pages/Dashboard.jsx`) — the last page still
+showing sample content, and the longest-standing named gap in this repo
+(called out in nearly every README revision since step 2). Now real:
+- Four KPI cards — active vehicles, devices online, unacknowledged
+  alerts, devices offline — each a real request, but with `per_page: 1`,
+  since only the response's `total` is used. No reason to pull full rows
+  down just to show a count.
+- Deliberately **not** built from `useDrivers()` — Drivers has narrower
+  read access than everything else (see the Drivers API section above),
+  and Dashboard has no role restriction of its own. Mixing a
+  role-gated data source into a page every role can see would mean the
+  same KPI card either breaks or lies depending on who's looking at it.
+  Simplest honest fix: don't source a KPI from data not everyone here can
+  read.
+- "Device heartbeat" and "Recent alerts" panels reuse the exact same
+  `StatusDot`/`Badge` patterns as the Devices and Alerts pages, each with
+  a "View all" link to the real thing — Dashboard summarizes, it doesn't
+  duplicate.
+- Refreshes itself on `device:update` and `alert:new`, the same two
+  events Devices and Alerts already listen for. Unlike Devices' handler,
+  which patches one row directly, Dashboard's KPIs are aggregate counts —
+  simplest correct way to keep a *count* fresh is to invalidate and
+  refetch it, not try to recompute a running sum from a stream of
+  individual events by hand.
+- Checked against a genuinely empty, freshly seeded database, not just a
+  populated one — every query Dashboard makes returns a clean `200` with
+  zero counts and empty lists, nothing errors on a brand new install.
+
 ## Honest gaps, not just what's next
 
-- **Dashboard still shows sample data.** It was built in step 2 as a
-  design-system proof, before any real module existed to pull numbers
-  from. Now that Fleet, Devices, and Drivers all have real data — and
-  Devices has *live* data — wiring Dashboard to it is worth doing, just
-  hasn't happened yet.
-- **Monitoring has no memory.** It only shows telemetry received while
-  the page happens to be open — refresh it and the feed and map both
-  start empty again, even though devices kept reporting the whole time.
-  No backend table stores readings, only each device's current status.
-  That's a real gap, not a subtle one, and it's *why* it's a gap rather
-  than a missing feature: persisting a full telemetry history is closer
-  to what Analytics or Reports should own than something to bolt onto a
-  live-status view.
+- **Dashboard's Drivers exclusion means owner/administrator/fleet_manager/
+  supervisor see a slightly less complete summary than they're actually
+  entitled to.** Those four roles could see a "Drivers on file" KPI;
+  everyone else couldn't. Leaving it out entirely keeps the page
+  identical for every role rather than showing a fifth card only some
+  people see — simpler and more honest than a conditionally-shaped
+  dashboard, but it does mean the roles with the most access get a page
+  that undersells what they're allowed to know.
 - **Alerts has no de-duplication window.** A genuinely flaky sensor that
   flickers critical → online → critical every few seconds generates a
   fresh alert on every crossing — there's no "don't re-alert on the same
   device within N minutes" logic. Real hardware in Phase 3 will make this
   worth having; the simulator's random walk doesn't flicker fast enough
   for it to matter yet, which is exactly why it's easy to forget.
-- **No list on any page — Fleet, Devices, Drivers, or Alerts — has a "load
-  more" or page control on the frontend**, even though every one of those
-  APIs already supports real pagination (`page`, `per_page`, capped at
-  100). Past the first 20 results, the rest are simply invisible right
-  now with no way to reach them. This has been true since Fleet in step
-  4; building Alerts is just what made it obvious enough to write down.
-- **The frontend bundle is at 899KB unminified, ~276KB gzipped.** Grew
-  again with Alerts, as expected — still not urgent at this size, still
-  the same fix later (code-splitting the heavier pages).
+- **Pagination has no configurable page size.** Fleet, Devices, and
+  Drivers fetch 20 at a time, Alerts 20 as well — fixed in each hook, not
+  something the person looking at the page can change. A "25/50/100 per
+  page" control is a reasonable later addition; it just isn't this one,
+  which was specifically about the list itself being reachable at all
+  past the first page, not about how many rows to show per screen.
+- **The frontend bundle is at 900KB unminified, ~277KB gzipped.** Grew
+  again with Monitoring's charts and map. Not urgent at this size, but
+  worth naming before it's forgotten — code-splitting the heavier pages
+  is the natural fix, later.
 - **The real-time layer has no staleness detection.** A device is
   "offline" only when the simulator (or real hardware, later) explicitly
   says so — nothing notices if a device just stops publishing entirely.
@@ -405,9 +461,9 @@ there first.
 
 ## Next up
 
-No single obvious next step this time, unlike every prior one — worth
-naming honestly rather than picking arbitrarily. Reasonable directions
-from here: Dashboard finally wired to real data (four modules' worth now
-exist to pull from), pagination UI to close the gap just named above, or
-the next CRUD module (Trips). Whichever's actually most useful is a
-better call made together than assumed.
+Dashboard and pagination were the two remaining directions from the
+choice offered after Alerts; both are done now. Trips — the next CRUD
+module — is the one clear option left from that original list. Asked
+twice without a clear answer this time, so this is a judgment call, not
+a confirmed direction: worth saying so plainly rather than treating it as
+agreed.

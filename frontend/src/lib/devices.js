@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import api from "./api";
 
 export function useDevices(params = {}) {
@@ -8,6 +13,7 @@ export function useDevices(params = {}) {
       const res = await api.get("/api/devices", { params });
       return res.data;
     },
+    placeholderData: keepPreviousData,
   });
 }
 

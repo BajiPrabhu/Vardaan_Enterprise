@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import api from "./api";
 
 export function useDrivers(params = {}, options = {}) {
@@ -8,6 +13,7 @@ export function useDrivers(params = {}, options = {}) {
       const res = await api.get("/api/drivers", { params });
       return res.data;
     },
+    placeholderData: keepPreviousData,
     ...options,
   });
 }

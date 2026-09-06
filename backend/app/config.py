@@ -17,6 +17,8 @@ class Config:
         "dev-jwt-secret-change-me-before-any-real-deploy",
     )
 
+    # Access tokens currently remain valid for 12 hours.
+    # Refresh-token hardening can be introduced later when needed.
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=12)
 
     SQLALCHEMY_DATABASE_URI = os.environ.get(
@@ -24,6 +26,8 @@ class Config:
         "mysql+pymysql://user:password@localhost:3306/vardaan",
     )
 
+    # Aiven MySQL requires an SSL connection.
+    # Certificate verification can be hardened later with Aiven's CA certificate.
     SQLALCHEMY_ENGINE_OPTIONS = {
         "connect_args": {
             "ssl_verify_cert": False,
